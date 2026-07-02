@@ -12,11 +12,11 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # ── Restore seen listings cache ──────────────────────────────────────
       - name: Restore seen listings cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: seen_listings.json
           key: seen-listings-${{ runner.os }}
@@ -25,7 +25,7 @@ jobs:
 
       # ── Python setup ─────────────────────────────────────────────────────
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -50,7 +50,7 @@ jobs:
 
       # ── Save updated seen listings cache ─────────────────────────────────
       - name: Save seen listings cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         if: always()
         with:
           path: seen_listings.json

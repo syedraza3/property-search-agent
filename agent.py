@@ -222,12 +222,12 @@ def send_email(subject: str, body: str):
     msg["Subject"] = subject
     msg["From"]    = EMAIL_FROM
     msg["To"]      = EMAIL_TO
-    msg.attach(MIMEText(body, "plain"))
+    msg.attach(MIMEText(body, "plain", "utf-8"))
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
             s.starttls()
             s.login(EMAIL_FROM, EMAIL_PASS)
-            s.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_string())
+            s.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_bytes())
         print("[OK] Email sent.")
     except Exception as e:
         print(f"[ERROR] Email send failed: {e}")
