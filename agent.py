@@ -176,14 +176,14 @@ def format_listing(listing: dict, area_name: str) -> str:
             garden_features.append(text)
 
     lines = [
-        f"🏡 {address} ({area_name})",
+        f"   {address} ({area_name})",
         f"   {beds} bed {prop_type} — {price}",
     ]
     if garden_features:
-        lines.append(f"   🌿 {' | '.join(garden_features[:2])}")
+        lines.append(f"    {' | '.join(garden_features[:2])}")
     if added:
-        lines.append(f"   📅 Listed: {added}")
-    lines.append(f"   🔗 {url}")
+        lines.append(f"     Listed: {added}")
+    lines.append(f"     {url}")
     return "\n".join(lines)
 
 
