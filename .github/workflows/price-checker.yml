@@ -1,0 +1,47 @@
+name: Price Checker
+
+on:
+  schedule:
+    # Every 3 hours
+    - cron: "0 */3 * * *"
+  workflow_dispatch:  # allows manual trigger from GitHub UI
+
+jobs:
+  check-price:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      # ── Restore price cache ───────────────────────────────────────────────
+      - name: Restore price cache
+        uses: actions/cache@v6
+        with:
+          path: last_price.json
+          key: last-price-${{ runner.os }}
+          restore-keys: |
+            last-price-
+
+      # ── Python setup ──────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── Run the price checker ─────────────────────────────────────────────
+      - name: Check price
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python price_checker.py
+
+      # ── Save updated price cache ──────────────────────────────────────────
+      - name: Save price cache
+        uses: actions/cache/save@v6
+        if: always()
+        with:
+          path: last_price.json
+          key: last-price-${{ runner.os }}-${{ github.run_id }}
