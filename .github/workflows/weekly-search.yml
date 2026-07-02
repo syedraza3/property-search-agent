@@ -1,0 +1,57 @@
+name: Weekly Property Search
+
+on:
+  schedule:
+    # Every Monday at 8am UK time (7am UTC, adjust for BST in summer)
+    - cron: "0 7 * * 1"
+  workflow_dispatch:  # also allows manual trigger from GitHub UI
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ── Restore seen listings cache ──────────────────────────────────────
+      - name: Restore seen listings cache
+        uses: actions/cache@v4
+        with:
+          path: seen_listings.json
+          key: seen-listings-${{ runner.os }}
+          restore-keys: |
+            seen-listings-
+
+      # ── Python setup ─────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── Run the agent ────────────────────────────────────────────────────
+      - name: Run property search agent
+        env:
+          # Choose "ntfy" or "email"
+          NOTIFY_VIA: ${{ secrets.NOTIFY_VIA }}
+
+          # ntfy.sh (if NOTIFY_VIA=ntfy)
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+
+          # Email (if NOTIFY_VIA=email) — use a Gmail App Password
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO:   ${{ secrets.EMAIL_TO }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+
+        run: python agent.py
+
+      # ── Save updated seen listings cache ─────────────────────────────────
+      - name: Save seen listings cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: seen_listings.json
+          key: seen-listings-${{ runner.os }}-${{ github.run_id }}
