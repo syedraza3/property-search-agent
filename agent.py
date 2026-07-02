@@ -2,18 +2,15 @@
 Property Search Agent
 Searches Rightmove weekly for 3-bed houses with large gardens
 in New Malden (KT3), Worcester Park (KT4), and Wallington (SM6)
-under £500,000 and sends a digest via email or ntfy.sh
+under £500,000 and sends a digest via ntfy.sh
 """
 
 import requests
 import json
 import os
-import smtplib
 import hashlib
 import re
 from datetime import datetime
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from urllib.parse import urlencode
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -37,19 +34,9 @@ GARDEN_KEYWORDS = [
     "80ft", "90ft", "120ft", "130ft", "140ft", "160ft",
 ]
 
-# Notification method: "email" or "ntfy"
-NOTIFY_VIA = os.environ.get("NOTIFY_VIA", "ntfy")  # set in GitHub Actions secrets
-
 # ntfy.sh config (set NTFY_TOPIC in GitHub Actions secrets)
 NTFY_TOPIC  = os.environ.get("NTFY_TOPIC", "your-topic-here")
 NTFY_SERVER = "https://ntfy.sh"
-
-# Email config (only needed if NOTIFY_VIA=email)
-EMAIL_FROM    = os.environ.get("EMAIL_FROM", "")
-EMAIL_TO      = os.environ.get("EMAIL_TO", "")
-EMAIL_PASS    = os.environ.get("EMAIL_PASS", "")
-SMTP_HOST     = "smtp.gmail.com"
-SMTP_PORT     = 587
 
 # Seen listings cache file (persists between runs via GitHub Actions cache)
 SEEN_FILE = "seen_listings.json"
@@ -217,22 +204,6 @@ def send_ntfy(message: str, title: str):
         print(f"[ERROR] ntfy send failed: {e}")
 
 
-def send_email(subject: str, body: str):
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = EMAIL_FROM
-    msg["To"]      = EMAIL_TO
-    msg.attach(MIMEText(body, "plain", "utf-8"))
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
-            s.starttls()
-            s.login(EMAIL_FROM, EMAIL_PASS)
-            s.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_bytes())
-        print("[OK] Email sent.")
-    except Exception as e:
-        print(f"[ERROR] Email send failed: {e}")
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def run():
@@ -279,17 +250,14 @@ def run():
     print(f"\n{title}\n")
     print(body)
 
-    if NOTIFY_VIA == "email":
-        send_email(title, body)
-    elif NOTIFY_VIA == "ntfy":
-        # ntfy has a 4096 char limit — chunk if needed
-        chunks = [new_listings[i:i+5] for i in range(0, len(new_listings), 5)]
-        for i, chunk in enumerate(chunks, 1):
-            chunk_body = header + "\n\n".join(
-                format_listing(l, area) for l, area in chunk
-            )
-            chunk_title = f"{title} (part {i}/{len(chunks)})" if len(chunks) > 1 else title
-            send_ntfy(chunk_body, chunk_title)
+    # ntfy has a 4096 char limit — chunk if needed
+    chunks = [new_listings[i:i+5] for i in range(0, len(new_listings), 5)]
+    for i, chunk in enumerate(chunks, 1):
+        chunk_body = header + "\n\n".join(
+            format_listing(l, area) for l, area in chunk
+        )
+        chunk_title = f"{title} (part {i}/{len(chunks)})" if len(chunks) > 1 else title
+        send_ntfy(chunk_body, chunk_title)
 
 
 if __name__ == "__main__":

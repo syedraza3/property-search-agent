@@ -35,17 +35,7 @@ jobs:
       # ── Run the agent ────────────────────────────────────────────────────
       - name: Run property search agent
         env:
-          # Choose "ntfy" or "email"
-          NOTIFY_VIA: ${{ secrets.NOTIFY_VIA }}
-
-          # ntfy.sh (if NOTIFY_VIA=ntfy)
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-
-          # Email (if NOTIFY_VIA=email) —
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO:   ${{ secrets.EMAIL_TO }}
-          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-
         run: python agent.py
 
       # ── Save updated seen listings cache ─────────────────────────────────
