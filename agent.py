@@ -21,11 +21,12 @@ AREAS = [
     {"name": "New Malden",    "outcode": "KT3"},
     {"name": "Worcester Park","outcode": "KT4"},
     {"name": "Wallington",    "outcode": "SM6"},
+    {"name": "Harrow",    "outcode": "HA2"},
 ]
 
-MAX_PRICE    = 500000
+MAX_PRICE    = 550000
 MIN_BEDS     = 3
-MAX_BEDS     = 3
+MAX_BEDS     = 5
 
 # Keywords that suggest a large garden in the listing description
 GARDEN_KEYWORDS = [
@@ -78,7 +79,7 @@ def rightmove_location_id(outcode: str) -> str | None:
 
 
 def fetch_listings(outcode: str) -> list[dict]:
-    """Fetch 3-bed houses for sale under £500k from Rightmove for a given outcode."""
+    """Fetch 3-5 bed houses for sale under £550k from Rightmove for a given outcode."""
     location_id = rightmove_location_id(outcode)
     if not location_id:
         print(f"[WARN] Skipping {outcode} — could not resolve location.")
