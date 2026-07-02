@@ -237,7 +237,7 @@ def run():
 
     # Build digest
     date_str = datetime.now().strftime("%d %b %Y")
-    title    = f"🏡 Property Digest — {date_str} ({len(new_listings)} new listings)"
+    title    = f" Property Digest — {date_str} ({len(new_listings)} new listings)"
     header   = (
         f"New 3-bed houses with large gardens | Under £500k\n"
         f"Areas: New Malden, Worcester Park, Wallington (SM6)\n"
