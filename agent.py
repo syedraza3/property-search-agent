@@ -10,10 +10,11 @@ import json
 import os
 import smtplib
 import hashlib
+import re
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from bs4 import BeautifulSoup
+from urllib.parse import urlencode
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -63,66 +64,86 @@ HEADERS = {
     )
 }
 
-def rightmove_location_id(outcode: str) -> str | None:
-    """Resolve an outcode to a Rightmove location identifier."""
-    url = "https://www.rightmove.co.uk/typeAhead/uknostreet/suggest"
-    params = {"term": outcode, "maxResults": 5}
-    try:
-        r = requests.get(url, params=params, headers=HEADERS, timeout=10)
-        data = r.json()
-        for item in data.get("typeAheadLocations", []):
-            if item.get("locationType") == "OUTCODE":
-                return item["locationIdentifier"]
-    except Exception as e:
-        print(f"[WARN] Could not resolve location ID for {outcode}: {e}")
-    return None
-
-
-def fetch_listings(outcode: str) -> list[dict]:
-    """Fetch 3-5 bed houses for sale under £550k from Rightmove for a given outcode."""
-    location_id = rightmove_location_id(outcode)
-    if not location_id:
-        print(f"[WARN] Skipping {outcode} — could not resolve location.")
-        return []
-
-    url = "https://www.rightmove.co.uk/api/_search"
+def _search_url(outcode: str, index: int = 0) -> str:
     params = {
-        "locationIdentifier": location_id,
         "minBedrooms": MIN_BEDS,
         "maxBedrooms": MAX_BEDS,
         "maxPrice": MAX_PRICE,
         "propertyTypes": "detached,semi-detached,terraced",
-        "mustHave": "",
-        "dontShow": "retirement,sharedOwnership",
-        "furnishTypes": "",
-        "keywords": "",
-        "sortType": "2",        # newest first
-        "index": 0,
-        "propertySubType": "",
-        "numberOfPropertiesPerPage": 48,
+        "numberOfPropertiesPerPage": 24,
         "radius": "0.0",
+        "sortType": 2,
         "channel": "BUY",
         "currencyCode": "GBP",
-        "isFetching": "false",
+        "index": index,
     }
+    return f"https://www.rightmove.co.uk/property-for-sale/{outcode}.html?{urlencode(params)}"
 
-    try:
-        r = requests.get(url, params=params, headers=HEADERS, timeout=15)
-        data = r.json()
-        return data.get("properties", [])
-    except Exception as e:
-        print(f"[ERROR] Failed to fetch listings for {outcode}: {e}")
-        return []
+
+def _parse_next_data(html: str) -> dict:
+    match = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        html,
+        re.S,
+    )
+    if not match:
+        raise ValueError("Rightmove page did not include __NEXT_DATA__")
+    return json.loads(match.group(1))
+
+
+def fetch_listings(outcode: str) -> list[dict]:
+    """Fetch matching properties for sale from Rightmove for a given outcode."""
+    listings: list[dict] = []
+    seen_ids: set[str] = set()
+    index = 0
+
+    while True:
+        url = _search_url(outcode, index)
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=20)
+            r.raise_for_status()
+            data = _parse_next_data(r.text)
+            search_results = data["props"]["pageProps"]["searchResults"]
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch listings for {outcode} at index {index}: {e}")
+            return listings
+
+        page_listings = search_results.get("properties", [])
+        for listing in page_listings:
+            lid = listing_id(listing)
+            if lid in seen_ids:
+                continue
+            seen_ids.add(lid)
+            listings.append(listing)
+
+        pagination = search_results.get("pagination", {})
+        next_index = pagination.get("next")
+        if not next_index:
+            break
+        index = int(next_index)
+
+    return listings
 
 
 # ── Garden Detection ──────────────────────────────────────────────────────────
 
 def has_large_garden(listing: dict) -> bool:
     """Return True if the listing description mentions a large garden."""
+    features = listing.get("keyFeatures", [])
+    feature_text = []
+    for feature in features:
+        if isinstance(feature, str):
+            feature_text.append(feature)
+        elif isinstance(feature, dict):
+            feature_text.append(
+                feature.get("description")
+                or feature.get("htmlDescription")
+                or ""
+            )
     text = " ".join([
         listing.get("summary", ""),
         listing.get("displayAddress", ""),
-        " ".join(listing.get("keyFeatures", [])),
+        " ".join(feature_text),
     ]).lower()
     return any(kw.lower() in text for kw in GARDEN_KEYWORDS)
 
@@ -157,9 +178,15 @@ def format_listing(listing: dict, area_name: str) -> str:
     prop_type = listing.get("propertySubType", listing.get("propertyTypeFullDescription", ""))
     added    = listing.get("listingUpdate", {}).get("listingUpdateDate", "")[:10]
     features = listing.get("keyFeatures", [])
-    garden_features = [f for f in features if any(
-        kw.lower() in f.lower() for kw in GARDEN_KEYWORDS
-    )]
+    garden_features = []
+    for feature in features:
+        text = ""
+        if isinstance(feature, str):
+            text = feature
+        elif isinstance(feature, dict):
+            text = feature.get("description") or feature.get("htmlDescription") or ""
+        if text and any(kw.lower() in text.lower() for kw in GARDEN_KEYWORDS):
+            garden_features.append(text)
 
     lines = [
         f"🏡 {address} ({area_name})",
