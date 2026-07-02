@@ -188,12 +188,14 @@ def format_listing(listing: dict, area_name: str) -> str:
 
 
 def send_ntfy(message: str, title: str):
+    # HTTP headers must be ASCII — strip non-ASCII characters (emoji, em dash, etc.)
+    ascii_title = title.encode("ascii", "ignore").decode().strip()
     try:
         requests.post(
             f"{NTFY_SERVER}/{NTFY_TOPIC}",
             data=message.encode("utf-8"),
             headers={
-                "Title": title,
+                "Title": ascii_title,
                 "Priority": "default",
                 "Tags": "house,garden",
             },
