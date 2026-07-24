@@ -38,8 +38,8 @@ GARDEN_KEYWORDS = [
 NTFY_TOPIC  = os.environ.get("NTFY_TOPIC", "your-topic-here")
 NTFY_SERVER = "https://ntfy.sh"
 
-# Seen listings cache file (persists between runs via GitHub Actions cache)
-SEEN_FILE = "seen_listings.json"
+# Sent listings cache file (persists between runs via GitHub Actions cache)
+SENT_FILE = "sent_listings.json"
 
 # ── Rightmove Search ──────────────────────────────────────────────────────────
 
@@ -143,16 +143,16 @@ def listing_id(listing: dict) -> str:
 
 # ── Seen Cache ────────────────────────────────────────────────────────────────
 
-def load_seen() -> set:
-    if os.path.exists(SEEN_FILE):
-        with open(SEEN_FILE) as f:
+def load_sent() -> set:
+    if os.path.exists(SENT_FILE):
+        with open(SENT_FILE) as f:
             return set(json.load(f))
     return set()
 
 
-def save_seen(seen: set):
-    with open(SEEN_FILE, "w") as f:
-        json.dump(list(seen), f)
+def save_sent(sent: set):
+    with open(SENT_FILE, "w") as f:
+        json.dump(list(sent), f)
 
 
 # ── Notification ──────────────────────────────────────────────────────────────
@@ -202,8 +202,10 @@ def send_ntfy(message: str, title: str):
             timeout=10,
         )
         print("[OK] ntfy notification sent.")
+        return True
     except Exception as e:
         print(f"[ERROR] ntfy send failed: {e}")
+        return False
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -213,7 +215,7 @@ def run():
     print(f"Property Agent — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print(f"{'='*60}\n")
 
-    seen = load_seen()
+    sent = load_sent()
     new_listings = []
 
     for area in AREAS:
@@ -223,15 +225,12 @@ def run():
 
         for listing in listings:
             lid = listing_id(listing)
-            if lid in seen:
+            if lid in sent:
                 continue
             if has_large_garden(listing):
-                new_listings.append((listing, area["name"]))
-                seen.add(lid)
+                new_listings.append((listing, area["name"], lid))
 
         print(f"  {sum(1 for l, _ in new_listings if _ == area['name'])} new large-garden hits")
-
-    save_seen(seen)
 
     if not new_listings:
         print("\nNo new large-garden listings found this week.")
@@ -246,7 +245,7 @@ def run():
         f"{'─'*50}\n\n"
     )
     body = header + "\n\n".join(
-        format_listing(l, area) for l, area in new_listings
+        format_listing(l, area) for l, area, _ in new_listings
     )
 
     print(f"\n{title}\n")
@@ -256,10 +255,14 @@ def run():
     chunks = [new_listings[i:i+5] for i in range(0, len(new_listings), 5)]
     for i, chunk in enumerate(chunks, 1):
         chunk_body = header + "\n\n".join(
-            format_listing(l, area) for l, area in chunk
+            format_listing(l, area) for l, area, _ in chunk
         )
         chunk_title = f"{title} (part {i}/{len(chunks)})" if len(chunks) > 1 else title
-        send_ntfy(chunk_body, chunk_title)
+        if send_ntfy(chunk_body, chunk_title):
+            for _, _, lid in chunk:
+                sent.add(lid)
+
+    save_sent(sent)
 
 
 if __name__ == "__main__":

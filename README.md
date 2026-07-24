@@ -71,5 +71,5 @@ To add another area (e.g. Sutton, SM1):
 2. Parses the embedded search results (Next.js `__NEXT_DATA__` JSON)
 3. Paginates through all results, filtering for beds, price, and property type
 4. Filters for listings mentioning large garden keywords in features/summary
-5. Deduplicates against a cached `seen_listings.json` (persisted via GitHub Actions cache)
+5. Deduplicates against a cached `sent_listings.json` (persisted via GitHub Actions cache)
 6. Sends a digest of **new** listings only via ntfy.sh — no repeat spam

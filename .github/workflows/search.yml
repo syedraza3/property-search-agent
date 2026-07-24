@@ -14,14 +14,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      # ── Restore seen listings cache ──────────────────────────────────────
-      - name: Restore seen listings cache
+      # ── Restore sent listings cache ──────────────────────────────────────
+      - name: Restore sent listings cache
         uses: actions/cache@v6
         with:
-          path: seen_listings.json
-          key: seen-listings-${{ runner.os }}
+          path: sent_listings.json
+          key: sent-listings-${{ runner.os }}
           restore-keys: |
-            seen-listings-
+            sent-listings-
 
       # ── Python setup ─────────────────────────────────────────────────────
       - name: Set up Python
@@ -38,10 +38,10 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python agent.py
 
-      # ── Save updated seen listings cache ─────────────────────────────────
-      - name: Save seen listings cache
+      # ── Save updated sent listings cache ─────────────────────────────────
+      - name: Save sent listings cache
         uses: actions/cache/save@v6
         if: always()
         with:
-          path: seen_listings.json
-          key: seen-listings-${{ runner.os }}-${{ github.run_id }}
+          path: sent_listings.json
+          key: sent-listings-${{ runner.os }}-${{ github.run_id }}
